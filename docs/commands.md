@@ -31,8 +31,8 @@ CARI protocol along with the table below is still under development and therefor
 | 0x82    | 3          | Get RX frequency                      | -                            | 64-bit frequency in Hz     | 11           |
 | 0x83    | 3          | Get TX frequency                      | -                            | 64-bit frequency in Hz     | 11           |
 | 0x84    | 3          | Get TX power                          | -                            | 8-bit value, unsigned[1]   | 4            |
-| 0x85    | 7          | Get RX frequency correction           | -                            | float[2]                   | 7            |
-| 0x86    | 7          | Get TX frequency correction           | -                            | float[2]                   | 7            |
+| 0x85    | 3          | Get RX frequency correction           | -                            | float[2]                   | 7            |
+| 0x86    | 3          | Get TX frequency correction           | -                            | float[2]                   | 7            |
 | ...     | ...        | ...                                   | ...                          | ...                        | ...          |
 
 All values are little-endian. Return value of 0 means success, any other value is an error code.
