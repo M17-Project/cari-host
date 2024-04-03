@@ -12,7 +12,7 @@
 #include <math.h>
 #include <stdarg.h>
 
-#include <fcntl.h> 
+#include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -160,25 +160,6 @@ int set_interface_attribs(int fd, uint32_t speed, int parity)
 	return 0;
 }
 
-void set_blocking(int fd, int should_block)
-{
-	struct termios tty;
-	memset(&tty, 0, sizeof tty);
-	if(tcgetattr(fd, &tty)!=0)
-	{
-		dbg_print(TERM_YELLOW, " Error from tggetattr\n");
-		return;
-	}
-
-	tty.c_cc[VMIN]  = should_block ? 1 : 0;
-	tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
-
-	if(tcsetattr(fd, TCSANOW, &tty)!=0)
-	{
-		dbg_print(TERM_YELLOW, " Error setting UART attributes\n");
-	}
-}
-
 //GPIO - library-less, guerrilla style - we assume that only 3 GPIOs will be used
 void gpio_init(void)
 {
@@ -311,27 +292,6 @@ void dev_set_rx_freq(uint64_t freq)
 	*((uint16_t*)&cmd[1])=11;
 	*((uint64_t*)&cmd[3])=freq;
 	write(fd, cmd, 11);
-	
-	//wait for device's response
-	do
-	{
-		ioctl(fd, FIONREAD, &uart_byte_cnt);
-	}
-	while(uart_byte_cnt!=4);
-	uint8_t resp[4]={0};
-	read(fd, resp, 4);
-	
-	if(resp[0]==CMD_SET_RX_FREQ && *((uint16_t*)&resp[1])==4)
-	{
-        if(resp[3]==0)
-		    dbg_print(0, "RX frequency: %lu Hz\n", freq); //OK
-        else
-            dbg_print(TERM_YELLOW, "Error %d setting RX frequency: %lu Hz\n", resp[3], freq); //error
-	}
-	else
-	{
-		dbg_print(TERM_YELLOW, "Malformed reply\n"); //error
-	}
 }
 
 void dev_set_tx_freq(uint64_t freq)
@@ -341,27 +301,6 @@ void dev_set_tx_freq(uint64_t freq)
 	*((uint16_t*)&cmd[1])=11;
 	*((uint64_t*)&cmd[3])=freq;
 	write(fd, cmd, 11);
-	
-	//wait for device's response
-	do
-	{
-		ioctl(fd, FIONREAD, &uart_byte_cnt);
-	}
-	while(uart_byte_cnt!=4);
-	uint8_t resp[4]={0};
-	read(fd, resp, 4);
-	
-	if(resp[0]==CMD_SET_TX_FREQ && *((uint16_t*)&resp[1])==4)
-	{
-        if(resp[3]==0)
-		    dbg_print(0, "TX frequency: %lu Hz\n", freq); //OK
-        else
-            dbg_print(TERM_YELLOW, "Error %d setting TX frequency: %lu Hz\n", resp[3], freq); //error
-	}
-	else
-	{
-		dbg_print(TERM_YELLOW, "Malformed reply\n"); //error
-	}
 }
 
 void dev_set_rx_freq_corr(float corr)
@@ -371,27 +310,6 @@ void dev_set_rx_freq_corr(float corr)
 	*((uint16_t*)&cmd[1])=7;
 	*((float*)&cmd[3])=corr;
 	write(fd, cmd, 7);
-
-	//wait for device's response
-	do
-	{
-		ioctl(fd, FIONREAD, &uart_byte_cnt);
-	}
-	while(uart_byte_cnt!=4);
-	uint8_t resp[4]={0};
-	read(fd, resp, 4);
-	
-	if(resp[0]==CMD_SET_RX_FREQ_CORR && *((uint16_t*)&resp[1])==4)
-	{
-        if(resp[3]==0)
-		    dbg_print(0, "RX frequency correction: %2.1f\n", corr); //OK
-        else
-            dbg_print(TERM_YELLOW, "Error %d setting RX frequency correction: %2.1f\n", resp[3], corr); //error
-	}
-	else
-	{
-		dbg_print(TERM_YELLOW, "Malformed reply\n"); //error
-	}
 }
 
 void dev_set_tx_freq_corr(float corr)
@@ -401,27 +319,6 @@ void dev_set_tx_freq_corr(float corr)
 	*((uint16_t*)&cmd[1])=7;
 	*((float*)&cmd[3])=corr;
 	write(fd, cmd, 7);
-
-	//wait for device's response
-	do
-	{
-		ioctl(fd, FIONREAD, &uart_byte_cnt);
-	}
-	while(uart_byte_cnt!=4);
-	uint8_t resp[4]={0};
-	read(fd, resp, 4);
-	
-	if(resp[0]==CMD_SET_TX_FREQ_CORR && *((uint16_t*)&resp[1])==4)
-	{
-        if(resp[3]==0)
-		    dbg_print(0, "TX frequency correction: %2.1f\n", corr); //OK
-        else
-            dbg_print(TERM_YELLOW, "Error %d setting TX frequency correction: %2.1f\n", resp[3], corr); //error
-	}
-	else
-	{
-		dbg_print(TERM_YELLOW, "Malformed reply\n"); //error
-	}
 }
 
 void dev_set_afc(uint8_t en)
@@ -430,37 +327,7 @@ void dev_set_afc(uint8_t en)
 	cmd[0]=CMD_SET_AFC;
 	*((uint16_t*)&cmd[1])=4;
 	cmd[3]=en?1:0;
-
 	write(fd, cmd, 4);
-
-	//wait for device's response
-	do
-	{
-		ioctl(fd, FIONREAD, &uart_byte_cnt);
-	}
-	while(uart_byte_cnt!=4);
-	uint8_t resp[4]={0};
-	read(fd, resp, 4);
-	
-	if(resp[0]==CMD_SET_AFC && *((uint16_t*)&resp[1])==4)
-	{
-        if(resp[3]==0)
-        {
-            if(en)
-                dbg_print(0, "AFC enabled"); 
-            else
-                dbg_print(0, "AFC disabled"); 
-            dbg_print(TERM_GREEN, " OK\n"); //OK
-        }
-        else
-        {
-            dbg_print(TERM_YELLOW, "Error %d setting AFC\n", resp[3]); //error
-        }
-	}
-	else
-	{
-		dbg_print(TERM_YELLOW, "Malformed reply\n"); //error
-	}
 }
 
 void dev_set_tx_power(float power) //powr in dBm
@@ -470,31 +337,6 @@ void dev_set_tx_power(float power) //powr in dBm
 	*((uint16_t*)&cmd[1])=4;
 	cmd[3]=roundf(power*4.0f);
 	write(fd, cmd, 4);
-
-	//wait for device's response
-	do
-	{
-		ioctl(fd, FIONREAD, &uart_byte_cnt);
-	}
-	while(uart_byte_cnt!=4);
-	uint8_t resp[4]={0};
-	read(fd, resp, 4);
-	
-    if(resp[0]==CMD_SET_TX_POWER && *((uint16_t*)&resp[1])==4)
-    {
-        if(resp[3]==0)
-        {
-            dbg_print(0, "TX power: %2.2f dBm\n", power); //OK
-        }
-        else
-        {
-            dbg_print(TERM_YELLOW, "Error %d setting TX power: %2.2f dBm\n", resp[3], power); //error
-        }
-    }
-    else
-    {
-        dbg_print(TERM_YELLOW, "Malformed reply\n"); //error
-    }
 }
 
 void dev_start_rx(void)
@@ -642,8 +484,7 @@ int main(int argc, char *argv[])
             return 1;
         }
         
-        set_blocking(fd, 0);
-        set_interface_attribs(fd, config.uart_rate, 0);
+        set_interface_attribs(fd, config.uart_rate, 0); //no parity, no blocking
         dbg_print(TERM_GREEN, " OK\n");
 
         //PING-PONG test
@@ -678,7 +519,7 @@ int main(int argc, char *argv[])
         //ZMQ stuff
         void *zmq_ctx = zmq_ctx_new();
         void *zmq_dlink = zmq_socket(zmq_ctx, ZMQ_PUB);
-        void *zmq_ctrl = zmq_socket(zmq_ctx, ZMQ_REP);
+    	void *zmq_ctrl = zmq_socket(zmq_ctx, ZMQ_REP);
 
         char tmp[128];
         if(config.dl_port!=0)
@@ -719,7 +560,7 @@ int main(int argc, char *argv[])
             ioctl(fd, FIONREAD, &uart_byte_cnt);
             if(uart_byte_cnt>0)
             {
-                static uint32_t total_uart_bytes=0;
+				static uint32_t total_uart_bytes=0;
 
                 if(total_uart_bytes+uart_byte_cnt>sizeof(uart_buff))
                 {
@@ -732,19 +573,21 @@ int main(int argc, char *argv[])
 
                 if(*((uint16_t*)&uart_buff[1])==total_uart_bytes && total_uart_bytes>=3)
                 {
-                    //process commands
-                    //baseband data chunk
-                    if(uart_buff[0]==CMD_STREAM_DATA)
+                    //basic GET commands
+                    if(uart_buff[0]<=CMD_SUB_CONNECT)
                     {
-                        //rip off the header
-                        zmq_send(zmq_dlink, &uart_buff[3], total_uart_bytes-3, ZMQ_DONTWAIT);
+                        zmq_send(zmq_ctrl, uart_buff, total_uart_bytes, ZMQ_DONTWAIT);
+						if(uart_buff[0]!=CMD_PING)
+							dbg_print(0, "<- CMD %02X, REP %02X\n", uart_buff[0], uart_buff[3]);
+						else
+							dbg_print(0, "<- CMD %02X, REP %08X\n", uart_buff[0], *((uint32_t*)&uart_buff[3]));
                     }
 
-                    //something else
-                    else if(uart_buff[0]>=CMD_SET_RX_FREQ && uart_buff[0]<=CMD_SUB_CONNECT)
+					//baseband data chunk
+                    else if(uart_buff[0]==CMD_STREAM_DATA)
                     {
-                        dbg_print(0, "REP %02X for CMD %d\n", uart_buff[3], uart_buff[0]);
-                        zmq_send(zmq_ctrl, uart_buff, 4, ZMQ_DONTWAIT);
+                        //rip off the header and push down the ZMQ
+                        zmq_send(zmq_dlink, &uart_buff[3], total_uart_bytes-3, ZMQ_DONTWAIT);
                     }
 
                     memset(uart_buff, 0, sizeof(uart_buff));
@@ -760,12 +603,16 @@ int main(int argc, char *argv[])
                 {
                     if(zmq_buff[0]==CMD_SET_RX_FREQ)
                     {
-                        dev_set_rx_freq(*((uint64_t*)&zmq_buff[3]));
+						uint64_t freq=*((uint64_t*)&zmq_buff[3]);
+						dev_set_rx_freq(freq);
+						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_RX_FREQ, freq);
                     }
 
                     else if(zmq_buff[0]==CMD_SET_TX_FREQ)
                     {
-                        dev_set_tx_freq(*((uint64_t*)&zmq_buff[3]));
+						uint64_t freq=*((uint64_t*)&zmq_buff[3]);
+                        dev_set_tx_freq(freq);
+						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_TX_FREQ, freq);
                     }
 
                     else if(zmq_buff[0]==CMD_SET_RX)
@@ -774,8 +621,9 @@ int main(int argc, char *argv[])
                         {
                             dev_start_rx();
                             uint8_t rep[4]={CMD_SET_RX, 4, 0, ERR_OK};
-                            dbg_print(0, "REP %02X for CMD %d\n", ERR_OK, CMD_SET_RX);
-                            zmq_send(zmq_ctrl, rep, 4, ZMQ_DONTWAIT);
+							zmq_send(zmq_ctrl, rep, 4, ZMQ_DONTWAIT);
+							//dbg_print(0, "-> CMD %02X, VAL %02X\n", CMD_SET_RX, zmq_buff[3]);
+                            //dbg_print(0, "<- CMD %02X, RET %02X\n", CMD_SET_RX, ERR_OK);
                         }
                         else
                             dev_stop_rx();
@@ -785,7 +633,7 @@ int main(int argc, char *argv[])
 
             //check ZMQ PUB for data
             //zmq_byte_cnt=zmq_recv(zmq_uplink, zmq_buff, sizeof(zmq_buff), ZMQ_DONTWAIT);
-            if(zmq_byte_cnt>0)
+            //if(zmq_byte_cnt>0)
             {
                 ;
             }
