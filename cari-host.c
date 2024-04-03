@@ -49,6 +49,7 @@ uint8_t uart_buff[1000];
 uint8_t zmq_buff[10000];
 
 uint8_t reset_only=0;
+uint8_t ulink_connected=0;			//uplink ZMQ connected?
 
 //debug printf
 void dbg_print(const char* color_code, const char* fmt, ...)
@@ -330,12 +331,12 @@ void dev_set_afc(uint8_t en)
 	write(fd, cmd, 4);
 }
 
-void dev_set_tx_power(float power) //powr in dBm
+void dev_set_tx_power(uint8_t power) //powr in dBm
 {
 	uint8_t cmd[4];
 	cmd[0]=CMD_SET_TX_POWER;	//transmit power
 	*((uint16_t*)&cmd[1])=4;
-	cmd[3]=roundf(power*4.0f);
+	cmd[3]=power;
 	write(fd, cmd, 4);
 }
 
@@ -349,6 +350,14 @@ void dev_stop_rx(void)
 {
 	uint8_t cmd[4]={CMD_SET_RX, 4, 0, 0}; //stop reception
 	write(fd, cmd, 4);
+}
+
+void dev_send_baseband(uint8_t *samples, uint16_t len)
+{
+	len+=3;
+	uint8_t h_buff[1000]={CMD_STREAM_DATA, len&0xFF, len>>8}; //header
+	memcpy(&h_buff[3], samples, len-3);
+	write(fd, h_buff, len);
 }
 
 int main(int argc, char *argv[])
@@ -519,6 +528,7 @@ int main(int argc, char *argv[])
         //ZMQ stuff
         void *zmq_ctx = zmq_ctx_new();
         void *zmq_dlink = zmq_socket(zmq_ctx, ZMQ_PUB);
+		void *zmq_ulink = zmq_socket(zmq_ctx, ZMQ_SUB);
     	void *zmq_ctrl = zmq_socket(zmq_ctx, ZMQ_REP);
 
         char tmp[128];
@@ -574,7 +584,7 @@ int main(int argc, char *argv[])
                 if(*((uint16_t*)&uart_buff[1])==total_uart_bytes && total_uart_bytes>=3)
                 {
                     //basic GET commands
-                    if(uart_buff[0]<=CMD_SUB_CONNECT)
+                    if(uart_buff[0]<CMD_SUB_CONNECT)
                     {
                         zmq_send(zmq_ctrl, uart_buff, total_uart_bytes, ZMQ_DONTWAIT);
 						if(uart_buff[0]!=CMD_PING)
@@ -615,6 +625,13 @@ int main(int argc, char *argv[])
 						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_TX_FREQ, freq);
                     }
 
+					else if(zmq_buff[0]==CMD_SET_TX_POWER)
+                    {
+						uint8_t pwr=zmq_buff[3];
+                        dev_set_tx_power(pwr);
+						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_TX_POWER, pwr);
+                    }
+
                     else if(zmq_buff[0]==CMD_SET_RX)
                     {
                         if(zmq_buff[3])
@@ -628,14 +645,36 @@ int main(int argc, char *argv[])
                         else
                             dev_stop_rx();
                     }
+
+					else if(zmq_buff[0]==CMD_SUB_CONNECT)
+					{
+						ulink_connected=!zmq_connect(zmq_ulink, (char*)&zmq_buff[3]);
+						dbg_print(0, "-> CMD %02X, VAL %s\n", CMD_SUB_CONNECT, (char*)&zmq_buff[3]);
+
+						uint8_t rep[4]={CMD_SUB_CONNECT, 4, 0, 0};
+						if(ulink_connected)
+						{
+							zmq_setsockopt(zmq_ulink, ZMQ_SUBSCRIBE, "", 0); //subscribe to everything
+							rep[3]=ERR_OK;
+							zmq_send(zmq_ctrl, rep, 4, ZMQ_DONTWAIT);
+							dbg_print(0, "<- CMD %02X, RET %02X\n", rep[0], rep[3]);
+						}
+						else
+						{
+							rep[3]=ERR_ZMQ_CONN;
+							zmq_send(zmq_ctrl, rep, 4, ZMQ_DONTWAIT);
+							dbg_print(0, "<- CMD %02X, RET %02X\n", rep[0], rep[3]);
+						}
+					}
                 }
             }
 
             //check ZMQ PUB for data
-            //zmq_byte_cnt=zmq_recv(zmq_uplink, zmq_buff, sizeof(zmq_buff), ZMQ_DONTWAIT);
-            //if(zmq_byte_cnt>0)
+			//if(ulink_connected)
+            zmq_byte_cnt=zmq_recv(zmq_ulink, zmq_buff, sizeof(zmq_buff), ZMQ_DONTWAIT);
+            if(zmq_byte_cnt>0)
             {
-                ;
+                dev_send_baseband(zmq_buff, zmq_byte_cnt);
             }
         }
     }
