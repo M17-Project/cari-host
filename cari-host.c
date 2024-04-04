@@ -575,7 +575,7 @@ int main(int argc, char *argv[])
                 if(total_uart_bytes+uart_byte_cnt>sizeof(uart_buff))
                 {
                     dbg_print(TERM_RED, "UART buffer overflow.\nExiting.\n");
-                    return 1;
+					return 1;
                 }
 
                 read(fd, &uart_buff[total_uart_bytes], uart_byte_cnt);
@@ -639,8 +639,8 @@ int main(int argc, char *argv[])
                             dev_start_rx();
                             uint8_t rep[4]={CMD_SET_RX, 4, 0, ERR_OK};
 							zmq_send(zmq_ctrl, rep, 4, ZMQ_DONTWAIT);
-							//dbg_print(0, "-> CMD %02X, VAL %02X\n", CMD_SET_RX, zmq_buff[3]);
-                            //dbg_print(0, "<- CMD %02X, RET %02X\n", CMD_SET_RX, ERR_OK);
+							dbg_print(0, "-> CMD %02X, VAL %02X\n", CMD_SET_RX, zmq_buff[3]);
+                            dbg_print(0, "<- CMD %02X, REP %02X\n", CMD_SET_RX, ERR_OK);
                         }
                         else
                             dev_stop_rx();
