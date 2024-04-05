@@ -1,5 +1,5 @@
 /*
- * rpi-interface.c
+ * cari-host.c
  *
  *  Created on: Dec 27, 2023
  *      Author: SP5WWP
@@ -21,7 +21,7 @@
 
 #include <zmq.h>
 
-//rpi-interface commands
+//CARI commands
 #include "interface_cmds.h"
 #include "term.h" //colored terminal font
 
