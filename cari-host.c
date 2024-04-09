@@ -629,14 +629,14 @@ int main(int argc, char *argv[])
                     {
 						float corr=*((float*)&zmq_buff[3]);
                         dev_set_rx_freq_corr(corr);
-						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_RX_FREQ_CORR, freq);
+						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_RX_FREQ_CORR, corr);
                     }
 
 					else if(zmq_buff[0]==CMD_SET_TX_FREQ_CORR)
                     {
 						float corr=*((float*)&zmq_buff[3]);
                         dev_set_tx_freq_corr(corr);
-						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_TX_FREQ_CORR, freq);
+						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_TX_FREQ_CORR, corr);
                     }
 
 					else if(zmq_buff[0]==CMD_SET_TX_POWER)
@@ -644,6 +644,13 @@ int main(int argc, char *argv[])
 						uint8_t pwr=zmq_buff[3];
                         dev_set_tx_power(pwr);
 						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_TX_POWER, pwr);
+                    }
+
+					else if(zmq_buff[0]==CMD_SET_AFC)
+                    {
+						uint8_t afc=zmq_buff[3];
+                        dev_set_afc(afc);
+						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_AFC, afc);
                     }
 
                     else if(zmq_buff[0]==CMD_SET_RX)
