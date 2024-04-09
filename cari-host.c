@@ -625,6 +625,20 @@ int main(int argc, char *argv[])
 						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_TX_FREQ, freq);
                     }
 
+					else if(zmq_buff[0]==CMD_SET_RX_FREQ_CORR)
+                    {
+						float corr=*((float*)&zmq_buff[3]);
+                        dev_set_rx_freq_corr(corr);
+						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_RX_FREQ_CORR, freq);
+                    }
+
+					else if(zmq_buff[0]==CMD_SET_TX_FREQ_CORR)
+                    {
+						float corr=*((float*)&zmq_buff[3]);
+                        dev_set_tx_freq_corr(corr);
+						//dbg_print(0, "-> CMD %02X, VAL %ld\n", CMD_SET_TX_FREQ_CORR, freq);
+                    }
+
 					else if(zmq_buff[0]==CMD_SET_TX_POWER)
                     {
 						uint8_t pwr=zmq_buff[3];
