@@ -39,6 +39,7 @@ struct config_t
     //ZMQ
     uint16_t dl_port;
     uint16_t ul_port;
+	uint16_t me_port;
     uint16_t ctrl_port;
 } config;
 
@@ -352,12 +353,18 @@ void dev_stop_rx(void)
 	write(fd, cmd, 4);
 }
 
-void dev_send_baseband(uint8_t *samples, uint16_t len)
+void dev_send_baseband(const uint8_t *samples, uint16_t len)
 {
 	len+=3;
 	uint8_t h_buff[1000]={CMD_STREAM_DATA, len&0xFF, len>>8}; //header
 	memcpy(&h_buff[3], samples, len-3);
 	write(fd, h_buff, len);
+}
+
+void dev_get_meas(void)
+{
+	uint8_t cmd[3]={CMD_GET_MEAS, 3, 0}; //get measurements
+	write(fd, cmd, 3);
 }
 
 int main(int argc, char *argv[])
@@ -368,6 +375,7 @@ int main(int argc, char *argv[])
         //load some ridiculous init values so we can tell, if they have been overwritten
         config.dl_port=0;
         config.ul_port=0;
+		config.me_port=0;
         config.ctrl_port=0;
 
         for(int i=0; i<argc; i++)
@@ -395,17 +403,24 @@ int main(int argc, char *argv[])
                     i++;
                 }
 
-                //uplink port
+                //downlink port
+                else if(strstr(argv[i], "dl"))
+                {
+                    config.dl_port=atoi(argv[i+1]);
+                    i++;
+                }
+
+				//uplink port
                 /*else if(strstr(argv[i], "ul"))
                 {
                     config.ul_port=atoi(argv[i+1]);
                     i++;
                 }*/
 
-                //downlink port
-                else if(strstr(argv[i], "dl"))
+				//measurements port
+				else if(strstr(argv[i], "me"))
                 {
-                    config.dl_port=atoi(argv[i+1]);
+                    config.me_port=atoi(argv[i+1]);
                     i++;
                 }
 
@@ -528,6 +543,7 @@ int main(int argc, char *argv[])
         //ZMQ stuff
         void *zmq_ctx = zmq_ctx_new();
         void *zmq_dlink = zmq_socket(zmq_ctx, ZMQ_PUB);
+		void *zmq_meas = zmq_socket(zmq_ctx, ZMQ_PUB);
 		void *zmq_ulink = zmq_socket(zmq_ctx, ZMQ_SUB);
     	void *zmq_ctrl = zmq_socket(zmq_ctx, ZMQ_REP);
 
@@ -545,6 +561,16 @@ int main(int argc, char *argv[])
         {
             dbg_print(TERM_RED, "ZeroMQ downlink port setting missing.\nExiting.\n", tmp);
             return 1;
+        }
+
+        if(config.me_port!=0)
+        {
+            sprintf(tmp, "tcp://*:%d", config.me_port);
+            dbg_print(0, "ZeroMQ telemetry: %s", tmp);
+            if(zmq_bind(zmq_meas, tmp)==0)
+                dbg_print(TERM_GREEN, " OK\n");
+            else
+                dbg_print(TERM_RED, " ERROR\n");
         }
         
         if(config.ctrl_port!=0)
@@ -598,6 +624,14 @@ int main(int argc, char *argv[])
                     {
                         //rip off the header and push down the ZMQ
                         zmq_send(zmq_dlink, &uart_buff[3], total_uart_bytes-3, ZMQ_DONTWAIT);
+						//send CMD_GET_MEAS after receiving RX baseband data
+						//dev_get_meas();
+                    }
+
+					//telemetry
+					else if(uart_buff[0]==CMD_GET_MEAS)
+                    {
+						zmq_send(zmq_meas, &uart_buff[3], 3, ZMQ_DONTWAIT);
                     }
 
                     memset(uart_buff, 0, sizeof(uart_buff));
@@ -687,6 +721,14 @@ int main(int argc, char *argv[])
 							dbg_print(0, "<- CMD %02X, RET %02X\n", rep[0], rep[3]);
 						}
 					}
+
+					//this command doesnt need to be issued by the CARI controller
+					//instead, this should be managed cyclically by the host
+					/*else if(zmq_buff[0]==CMD_GET_MEAS)
+                    {
+						dev_get_meas();
+						//dbg_print(0, "-> CMD %02X\n", CMD_GET_MEAS);
+                    }*/
                 }
             }
 
@@ -695,8 +737,19 @@ int main(int argc, char *argv[])
             zmq_byte_cnt=zmq_recv(zmq_ulink, zmq_buff, sizeof(zmq_buff), ZMQ_DONTWAIT);
             if(zmq_byte_cnt>0)
             {
+				//send baseband samples over UART for transmission
                 dev_send_baseband(zmq_buff, zmq_byte_cnt);
             }
+
+			//fetch measurements every 5 seconds
+			/*static uint8_t measure=1;
+			if(time(NULL)%5==0 && measure)
+			{
+				dev_get_meas();
+				measure=0;
+			}
+			else if(time(NULL)%5!=0)
+				measure=1;*/
         }
     }
     else
