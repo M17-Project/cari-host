@@ -1,5 +1,5 @@
 # cari-host
-CARI host for Raspberry Pi
+CARI Raspberry Pi host for the M17 Project's [Remote Radio Unit](https://github.com/M17-Project/rru-rf-hw).
 
 ## CLI parameters
 | Parameter        | Description                                                       |
