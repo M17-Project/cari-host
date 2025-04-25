@@ -13,3 +13,9 @@ CARI Raspberry Pi host for the M17 Project's [Remote Radio Unit](https://github.
 | -r               | Reset the device and exit                                         |
 | -u *value*       | UART device (string)                                              |
 | -s *value*       | UART baudrate (integer)                                           |
+
+
+### Example
+```bash
+cari-host -pa 27 -nrst 17 -boot 22 -dl 17170 -ul 17171 -me 17172 -ctrl 17173 -d /dev/ttyAMA0 -s 460800
+```
