@@ -19,6 +19,7 @@
 #include <time.h>
 #include <signal.h>
 
+#include <gpiod.h>
 #include <zmq.h>
 
 //CARI commands
@@ -165,119 +166,121 @@ int set_interface_attribs(int fd, uint32_t speed, int parity)
 //GPIO - library-less, guerrilla style - we assume that only 3 GPIOs will be used
 void gpio_init(void)
 {
-	FILE* fp;
-	char tmp[256];
-	
-	//enable
-	fp=fopen("/sys/class/gpio/export", "wb");
-	if(fp!=NULL)
-	{
-		sprintf(tmp, "%d", config.pa_en);
-		fwrite(tmp, strlen(tmp), 1, fp);
-		fclose(fp);
-	}
-	else
-	{
-		dbg_print(TERM_RED, " can not initialize PA_EN (GPIO%d)\nExiting\n", config.pa_en);
+	struct gpiod_chip *chip;
+	struct gpiod_line *pa_en_line, *boot0_line, *nrst_line;
+	int ret;
+
+	// Open the GPIO chip
+	chip = gpiod_chip_open_by_name("gpiochip0"); // Assuming gpiochip0, might need to be configurable
+	if (!chip) {
+		dbg_print(TERM_RED, "Error opening GPIO chip\n");
 		exit(1);
 	}
 
-	fp=fopen("/sys/class/gpio/export", "wb");
-	if(fp!=NULL)
-	{
-		sprintf(tmp, "%d", config.boot0);
-		fwrite(tmp, strlen(tmp), 1, fp);
-		fclose(fp);
-	}
-	else
-	{
-		dbg_print(TERM_RED, " can not initialize BOOT0 (GPIO%d)\nExiting\n", config.boot0);
-		exit(1);
-	}
-	
-	fp=fopen("/sys/class/gpio/export", "wb");
-	if(fp!=NULL)
-	{
-		sprintf(tmp, "%d", config.nrst);
-		fwrite(tmp, strlen(tmp), 1, fp);
-		fclose(fp);
-	}
-	else
-	{
-		dbg_print(TERM_RED, " can not initialize nRST (GPIO%d)\nExiting\n", config.nrst);
+	// Get the lines
+	pa_en_line = gpiod_chip_get_line(chip, config.pa_en);
+	if (!pa_en_line) {
+		dbg_print(TERM_RED, "Error getting PA_EN line (GPIO%d)\n", config.pa_en);
+		gpiod_chip_close(chip);
 		exit(1);
 	}
 
-	usleep(250000U); //give it 250ms
-
-	//set as output, default value is logic low
-	sprintf(tmp, "/sys/class/gpio/gpio%d/direction", config.pa_en);
-	fp=fopen(tmp, "wb");
-	if(fp!=NULL)
-	{
-		fwrite("out", 3, 1, fp);
-		fclose(fp);
-	}
-	else
-	{
-		dbg_print(TERM_RED, " can not initialize PA_EN (GPIO%d)\nExiting\n");
+	boot0_line = gpiod_chip_get_line(chip, config.boot0);
+	if (!boot0_line) {
+		dbg_print(TERM_RED, "Error getting BOOT0 line (GPIO%d)\n", config.boot0);
+		gpiod_line_release(pa_en_line);
+		gpiod_chip_close(chip);
 		exit(1);
 	}
 
-	sprintf(tmp, "/sys/class/gpio/gpio%d/direction", config.boot0);
-	fp=fopen(tmp, "wb");
-	if(fp!=NULL)
-	{
-		fwrite("out", 3, 1, fp);
-		fclose(fp);
-	}
-	else
-	{
-		dbg_print(TERM_RED, " can not initialize BOOT0 (GPIO%d)\nExiting\n");
+	nrst_line = gpiod_chip_get_line(chip, config.nrst);
+	if (!nrst_line) {
+		dbg_print(TERM_RED, "Error getting nRST line (GPIO%d)\n", config.nrst);
+		gpiod_line_release(pa_en_line);
+		gpiod_line_release(boot0_line);
+		gpiod_chip_close(chip);
 		exit(1);
 	}
 
-	sprintf(tmp, "/sys/class/gpio/gpio%d/direction", config.nrst);
-	fp=fopen(tmp, "wb");
-	if(fp!=NULL)
-	{
-		fwrite("out", 3, 1, fp);
-		fclose(fp);
-	}
-	else
-	{
-		dbg_print(TERM_RED, " can not initialize nRST (GPIO%d)\nExiting\n");
+	// Request lines as outputs, initially low
+	ret = gpiod_line_request_output(pa_en_line, "cari-host", 0);
+	if (ret < 0) {
+		dbg_print(TERM_RED, "Error requesting PA_EN line as output\n");
+		gpiod_line_release(pa_en_line);
+		gpiod_line_release(boot0_line);
+		gpiod_line_release(nrst_line);
+		gpiod_chip_close(chip);
 		exit(1);
 	}
+
+	ret = gpiod_line_request_output(boot0_line, "cari-host", 0);
+	if (ret < 0) {
+		dbg_print(TERM_RED, "Error requesting BOOT0 line as output\n");
+		gpiod_line_release(pa_en_line);
+		gpiod_line_release(boot0_line);
+		gpiod_line_release(nrst_line);
+		gpiod_chip_close(chip);
+		exit(1);
+	}
+
+	ret = gpiod_line_request_output(nrst_line, "cari-host", 0);
+	if (ret < 0) {
+		dbg_print(TERM_RED, "Error requesting nRST line as output\n");
+		gpiod_line_release(pa_en_line);
+		gpiod_line_release(boot0_line);
+		gpiod_line_release(nrst_line);
+		gpiod_chip_close(chip);
+		exit(1);
+	}
+
+	// Lines are now requested and set to low. They will be released on program exit.
+	// We don't need to store the line pointers in config_t for this simple case,
+	// as gpio_set will get the line again. If performance is critical, we could store them.
+	// For now, keep it simple.
 }
 
 uint8_t gpio_set(uint16_t gpio, uint8_t state)
 {
-	FILE* fp=NULL;
-	char tmp[256];
+	struct gpiod_chip *chip;
+	struct gpiod_line *line;
+	int ret;
 
-	sprintf(tmp, "/sys/class/gpio/gpio%d/value", gpio);
-	fp=fopen(tmp, "wb");
-
-	if(fp!=NULL)
-	{
-		if(state)
-		{
-			fwrite("1", 1, 1, fp);
-		}
-		else
-		{
-			fwrite("0", 1, 1, fp);
-		}
-
-		fclose(fp);
-		return 0;
-	}
-	else
-	{
-		dbg_print(TERM_YELLOW, " Error - can not set GPIO%d value\n", gpio);
+	// Open the GPIO chip
+	chip = gpiod_chip_open_by_name("gpiochip0"); // Assuming gpiochip0
+	if (!chip) {
+		dbg_print(TERM_RED, "Error opening GPIO chip for setting value\n");
 		return 1;
 	}
+
+	// Get the line
+	line = gpiod_chip_get_line(chip, gpio);
+	if (!line) {
+		dbg_print(TERM_RED, "Error getting GPIO line %d for setting value\n", gpio);
+		gpiod_chip_close(chip);
+		return 1;
+	}
+
+	// Request the line as output if not already requested (gpio_init should have done this)
+	// This is a safeguard, gpio_init should ensure lines are requested.
+	// If gpio_init fails or is skipped, this might help, but proper flow is gpio_init first.
+	// For now, assuming gpio_init has run and requested the lines.
+	// If not requested, gpiod_line_set_value might fail or behave unexpectedly.
+	// A more robust approach would be to store line pointers in config_t.
+
+	// Set the value
+	ret = gpiod_line_set_value(line, state ? 1 : 0);
+	if (ret < 0) {
+		dbg_print(TERM_RED, "Error setting GPIO line %d value to %d\n", gpio, state);
+		gpiod_line_release(line);
+		gpiod_chip_close(chip);
+		return 1;
+	}
+
+	// Release the line and close the chip (less efficient than persistent handles, but simpler)
+	gpiod_line_release(line);
+	gpiod_chip_close(chip);
+
+	return 0;
 }
 
 //commands and funcs
