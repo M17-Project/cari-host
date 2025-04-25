@@ -12,6 +12,7 @@
 #include <math.h>
 #include <stdarg.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
@@ -277,7 +278,7 @@ uint8_t gpio_set(uint16_t gpio, uint8_t state)
 	ret = gpiod_line_set_value(line, state ? 1 : 0);
 	dbg_print(0, "Attempted to set GPIO line %d to %d, gpiod_line_set_value returned %d\n", gpio, state, ret);
 	if (ret < 0) {
-		dbg_print(TERM_RED, "Error setting GPIO line %d value to %d\n", gpio, state);
+		dbg_print(TERM_RED, "Error setting GPIO line %d value to %d (errno: %d)\n", gpio, state, errno);
 		gpiod_line_release(line);
 		gpiod_chip_close(chip);
 		return 1;
