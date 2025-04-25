@@ -205,32 +205,38 @@ void gpio_init(void)
 	// Request lines as outputs, initially low
 	ret = gpiod_line_request_output(pa_en_line, "cari-host", 0);
 	if (ret < 0) {
-		dbg_print(TERM_RED, "Error requesting PA_EN line as output\n");
+		dbg_print(TERM_RED, "Error requesting PA_EN line %d as output\n", config.pa_en);
 		gpiod_line_release(pa_en_line);
 		gpiod_line_release(boot0_line);
 		gpiod_line_release(nrst_line);
 		gpiod_chip_close(chip);
 		exit(1);
+	} else {
+		dbg_print(TERM_GREEN, "Successfully requested PA_EN line %d as output\n", config.pa_en);
 	}
 
 	ret = gpiod_line_request_output(boot0_line, "cari-host", 0);
 	if (ret < 0) {
-		dbg_print(TERM_RED, "Error requesting BOOT0 line as output\n");
+		dbg_print(TERM_RED, "Error requesting BOOT0 line %d as output\n", config.boot0);
 		gpiod_line_release(pa_en_line);
 		gpiod_line_release(boot0_line);
 		gpiod_line_release(nrst_line);
 		gpiod_chip_close(chip);
 		exit(1);
+	} else {
+		dbg_print(TERM_GREEN, "Successfully requested BOOT0 line %d as output\n", config.boot0);
 	}
 
 	ret = gpiod_line_request_output(nrst_line, "cari-host", 0);
 	if (ret < 0) {
-		dbg_print(TERM_RED, "Error requesting nRST line as output\n");
+		dbg_print(TERM_RED, "Error requesting nRST line %d as output\n", config.nrst);
 		gpiod_line_release(pa_en_line);
 		gpiod_line_release(boot0_line);
 		gpiod_line_release(nrst_line);
 		gpiod_chip_close(chip);
 		exit(1);
+	} else {
+		dbg_print(TERM_GREEN, "Successfully requested nRST line %d as output\n", config.nrst);
 	}
 
 	// Lines are now requested and set to low. They will be released on program exit.
@@ -269,6 +275,7 @@ uint8_t gpio_set(uint16_t gpio, uint8_t state)
 
 	// Set the value
 	ret = gpiod_line_set_value(line, state ? 1 : 0);
+	dbg_print(0, "Attempted to set GPIO line %d to %d, gpiod_line_set_value returned %d\n", gpio, state, ret);
 	if (ret < 0) {
 		dbg_print(TERM_RED, "Error setting GPIO line %d value to %d\n", gpio, state);
 		gpiod_line_release(line);
