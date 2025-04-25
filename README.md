@@ -14,6 +14,9 @@ CARI Raspberry Pi host for the M17 Project's [Remote Radio Unit](https://github.
 | -u *value*       | UART device (string)                                              |
 | -s *value*       | UART baudrate (integer)                                           |
 
+### Dependencies:
+- libzmq3
+- libgpiod
 
 ### Example
 ```bash
