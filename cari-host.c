@@ -170,7 +170,6 @@
 	 return 0;
  }
  
- //GPIO - library-less, guerrilla style - we assume that only 3 GPIOs will be used
  void gpio_init(void)
  {
 	 int ret;
