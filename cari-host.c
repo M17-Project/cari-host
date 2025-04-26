@@ -66,11 +66,11 @@ void dbg_print(const char* color_code, const char* fmt, ...)
 {
 	char str[200];
 	va_list ap;
-	
+
 	va_start(ap, fmt);
 	vsprintf(str, fmt, ap);
 	va_end(ap);
-	
+
 	if(color_code!=NULL)
 	{
 		printf(color_code);
@@ -139,29 +139,29 @@ int set_interface_attribs(int fd, uint32_t speed, int parity)
 		//error_message ("error %d from tcgetattr", errno);
 		return -1;
 	}
-	
+
 	cfsetospeed(&tty, get_baud(speed));
 	cfsetispeed(&tty, get_baud(speed));
-	
+
 	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
 	// disable IGNBRK for mismatched speed tests; otherwise receive break
 	// as \000 chars
 	tty.c_iflag &= ~IGNBRK;			// disable break processing
 	tty.c_lflag = 0;				// no signaling chars, no echo,
-	// no canonical processing
+									// no canonical processing
 	tty.c_oflag = 0;                // no remapping, no delays
 	tty.c_cc[VMIN]  = 0;            // read doesn't block
 	tty.c_cc[VTIME] = 0;            // 0.0 seconds read timeout
-	
+
 	tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
-	
+
 	tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
-	// enable reading
+									// enable reading
 	tty.c_cflag &= ~(PARENB | PARODD);      // shut off parity
 	tty.c_cflag |= parity;
 	tty.c_cflag &= ~CSTOPB;
 	tty.c_cflag &= ~CRTSCTS;
-	
+
 	if(tcsetattr(fd, TCSANOW, &tty)!=0)
 	{		
 		dbg_print(TERM_RED, " Error from tcsetattr\n");
