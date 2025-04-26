@@ -200,7 +200,7 @@ void gpio_cleanup(void)
 	dbg_print(TERM_GREEN, "GPIO resources released\n");
 }
 
-void gpio_init(void)
+void gpio_init(const char *program_name)
 {
 	int ret;
 	
@@ -241,21 +241,21 @@ void gpio_init(void)
 	}
 	
 	// Request lines as outputs, initially low
-	ret = gpiod_line_request_output(config.pa_en_line, argv[0], 0);
+	ret = gpiod_line_request_output(config.pa_en_line, program_name, 0);
 	if (ret < 0) {
 		dbg_print(TERM_RED, "Error requesting PA_EN line %d as output\n", config.pa_en);
 		gpio_cleanup();
 		exit(1);
 	}
 	
-	ret = gpiod_line_request_output(config.boot0_line, argv[0], 0);
+	ret = gpiod_line_request_output(config.boot0_line, program_name, 0);
 	if (ret < 0) {
 		dbg_print(TERM_RED, "Error requesting BOOT0 line %d as output\n", config.boot0);
 		gpio_cleanup();
 		exit(1);
 	}
 	
-	ret = gpiod_line_request_output(config.nrst_line, argv[0], 0);
+	ret = gpiod_line_request_output(config.nrst_line, program_name, 0);
 	if (ret < 0) {
 		dbg_print(TERM_RED, "Error requesting nRST line %d as output\n", config.nrst);
 		gpio_cleanup();
@@ -533,7 +533,7 @@ int main(int argc, char *argv[])
 		//init GPIOs
 		dbg_print(0, "GPIO init");
 		uint8_t gpio_err=0;
-		gpio_init();
+		gpio_init(argv[0]);
 		gpio_err|=gpio_set(config.boot0, 0); //all pins should be at logic low already, but better be safe than sorry
 		gpio_err|=gpio_set(config.pa_en, 0);
 		gpio_err|=gpio_set(config.nrst, 0);
