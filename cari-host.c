@@ -241,21 +241,21 @@ void gpio_init(void)
 	}
 	
 	// Request lines as outputs, initially low
-	ret = gpiod_line_request_output(config.pa_en_line, "cari-host", 0);
+	ret = gpiod_line_request_output(config.pa_en_line, argv[0], 0);
 	if (ret < 0) {
 		dbg_print(TERM_RED, "Error requesting PA_EN line %d as output\n", config.pa_en);
 		gpio_cleanup();
 		exit(1);
 	}
 	
-	ret = gpiod_line_request_output(config.boot0_line, "cari-host", 0);
+	ret = gpiod_line_request_output(config.boot0_line, argv[0], 0);
 	if (ret < 0) {
 		dbg_print(TERM_RED, "Error requesting BOOT0 line %d as output\n", config.boot0);
 		gpio_cleanup();
 		exit(1);
 	}
 	
-	ret = gpiod_line_request_output(config.nrst_line, "cari-host", 0);
+	ret = gpiod_line_request_output(config.nrst_line, argv[0], 0);
 	if (ret < 0) {
 		dbg_print(TERM_RED, "Error requesting nRST line %d as output\n", config.nrst);
 		gpio_cleanup();
