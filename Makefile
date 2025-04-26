@@ -1,7 +1,7 @@
 all: cari-host
 
 cari-host: cari-host.c
-	gcc -O2 -Wall -Wextra cari-host.c -o cari-host -lm -lzmq
+	gcc -O2 -Wall -Wextra cari-host.c -o cari-host -lm -lzmq -lgpiod
 
 install: all
 	sudo install cari-host /usr/local/bin
